@@ -2,6 +2,7 @@ package com.example.animationtest
 
 import android.os.Bundle
 import android.util.Log
+import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.foundation.Canvas
@@ -18,7 +19,9 @@ import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.consumeAllChanges
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
@@ -49,9 +52,10 @@ internal val LocalDragTargetInfo = compositionLocalOf { DragTargetInfo() }
 @Preview
 @Composable
 fun MyUI() {
-    val screenHeight = LocalConfiguration.current.screenHeightDp.dp
     val screenWidth = LocalConfiguration.current.screenWidthDp.dp
+    var startPosition by remember { mutableStateOf(Offset.Zero) }
     val currentState = LocalDragTargetInfo.current
+    val context = LocalContext.current
     val padding = 40.dp
     Box(modifier = Modifier
         .size(width = screenWidth, height = 64.dp)
@@ -73,11 +77,15 @@ fun MyUI() {
                 .matchParentSize()
                 .pointerInput(Unit) {
                     detectDragGestures(onDragStart = {
+                        startPosition = it
+                        Log.d("eee",it.x.toString())
                     }, onDrag = { change, dragAmount ->
                         change.consumeAllChanges()
+                        if(startPosition.x > 0.dp.toPx() && startPosition.x < 64.dp.toPx())
                         currentState.dragOffset += Offset(dragAmount.x, dragAmount.y)
                     }, onDragEnd = {
-
+                        if (currentState.dragReached)
+                            Toast.makeText(context, "reached", Toast.LENGTH_SHORT).show()
                         currentState.dragOffset = Offset.Zero
                     }, onDragCancel = {
                         currentState.dragOffset = Offset.Zero
@@ -94,18 +102,17 @@ fun MyUI() {
             )
             drawCircle(
                 color = Color(0xFFF3E4C2),
-                radius = 24.dp.toPx(),
+                radius = 32.dp.toPx(),
                 center = Offset(x = x, y = offsetY)
             )
-            Log.d("x",x.toString())
-            Log.d("maxX",maxX.toString())
-            if (x == maxX) Log.d("reached","TO DO")
+            currentState.dragReached = x == maxX
         }
 
         Text(
             text = "スライドでサインアウト",
             color = Color(0xFFF3E4C2),
-            fontSize = 16.sp, textAlign = TextAlign.Center,
+            fontSize = 16.sp,
+            textAlign = TextAlign.Center,
             modifier = Modifier
                 .matchParentSize()
                 .wrapContentHeight(),
@@ -115,5 +122,6 @@ fun MyUI() {
 }
 
 internal class DragTargetInfo {
+    var dragReached by mutableStateOf(false)
     var dragOffset by mutableStateOf(Offset.Zero)
 }
