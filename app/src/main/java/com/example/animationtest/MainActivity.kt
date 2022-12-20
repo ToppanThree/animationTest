@@ -1,13 +1,15 @@
 package com.example.animationtest
 
 import android.os.Bundle
-import android.util.Log
-import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.foundation.Canvas
-import androidx.compose.foundation.gestures.detectDragGestures
+import androidx.compose.foundation.gestures.Orientation
 import androidx.compose.foundation.layout.*
+import androidx.compose.material.ExperimentalMaterialApi
+import androidx.compose.material.FractionalThreshold
+import androidx.compose.material.rememberSwipeableState
+import androidx.compose.material.swipeable
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -17,18 +19,15 @@ import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.input.pointer.consumeAllChanges
-import androidx.compose.ui.input.pointer.pointerInput
-import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.platform.LocalConfiguration
-import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.core.math.MathUtils
 import com.example.animationtest.ui.theme.AnimationTestTheme
+import kotlinx.coroutines.launch
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -47,19 +46,32 @@ class MainActivity : ComponentActivity() {
     }
 }
 
-internal val LocalDragTargetInfo = compositionLocalOf { DragTargetInfo() }
+internal val LocalSwipeTargetInfo = compositionLocalOf { DragTargetInfo() }
 
+@OptIn(ExperimentalMaterialApi::class)
 @Preview
 @Composable
 fun MyUI() {
+    val composableScope = rememberCoroutineScope()
     val screenWidth = LocalConfiguration.current.screenWidthDp.dp
-    var startPosition by remember { mutableStateOf(Offset.Zero) }
-    val currentState = LocalDragTargetInfo.current
-    val context = LocalContext.current
+    val currentState = LocalSwipeTargetInfo.current
     val padding = 40.dp
+    val radius = 32.dp
+    val offset = 32.dp
+    val swipeableState = rememberSwipeableState(initialValue = 0)
+    val start = with(LocalDensity.current) { offset.toPx() }
+    val end = with(LocalDensity.current) { (screenWidth - (offset + padding * 2)).toPx() }
+    val anchors = mapOf(start to 0, end to 1)
     Box(modifier = Modifier
+        .swipeable(
+            state = swipeableState,
+            anchors = anchors,
+            thresholds = { _, _ -> FractionalThreshold(1f) },
+            orientation = Orientation.Horizontal
+        )
         .size(width = screenWidth, height = 64.dp)
         .padding(horizontal = padding)
+
     ){
         Canvas(
             modifier = Modifier
@@ -74,42 +86,31 @@ fun MyUI() {
 
         Canvas(
             modifier = Modifier
-                .matchParentSize()
-                .pointerInput(Unit) {
-                    detectDragGestures(onDragStart = {
-                        startPosition = it
-                        Log.d("eee",it.x.toString())
-                    }, onDrag = { change, dragAmount ->
-                        change.consumeAllChanges()
-                        if(startPosition.x > 0.dp.toPx() && startPosition.x < 64.dp.toPx())
-                        currentState.dragOffset += Offset(dragAmount.x, dragAmount.y)
-                    }, onDragEnd = {
-                        if (currentState.dragReached)
-                            Toast.makeText(context, "reached", Toast.LENGTH_SHORT).show()
-                        currentState.dragOffset = Offset.Zero
-                    }, onDragCancel = {
-                        currentState.dragOffset = Offset.Zero
-                    })
-                }
+                .size(32.dp)
         ){
-            val offsetX = 32.dp.toPx()
-            val offsetY = 32.dp.toPx()
-            val maxX = screenWidth.toPx() - (offsetX + padding.toPx() * 2)
-            val x = MathUtils.clamp(
-                offsetX + currentState.dragOffset.x,
-                offsetX,
-                maxX
-            )
-            drawCircle(
-                color = Color(0xFFF3E4C2),
-                radius = 32.dp.toPx(),
-                center = Offset(x = x, y = offsetY)
-            )
-            currentState.dragReached = x == maxX
+            if(!currentState.swipeReached) {
+                drawCircle(
+                    color = Color(0xFFF3E4C2),
+                    radius = radius.toPx(),
+                    center = Offset(swipeableState.offset.value, offset.toPx())
+                )
+                currentState.swipeReached = swipeableState.offset.value == end
+            }else{
+                // TODO
+                drawCircle(
+                    color = Color(0xFFF3E4C2),
+                    radius = 32.dp.toPx(),
+                    center = Offset(offset.toPx(), offset.toPx())
+                )
+                composableScope.launch {
+                    swipeableState.snapTo(0)
+                    currentState.swipeReached = false
+                }
+            }
         }
 
         Text(
-            text = "スライドでサインアウト",
+            text = "Swipe To Do",
             color = Color(0xFFF3E4C2),
             fontSize = 16.sp,
             textAlign = TextAlign.Center,
@@ -122,6 +123,5 @@ fun MyUI() {
 }
 
 internal class DragTargetInfo {
-    var dragReached by mutableStateOf(false)
-    var dragOffset by mutableStateOf(Offset.Zero)
+    var swipeReached by mutableStateOf(false)
 }
