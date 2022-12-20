@@ -99,7 +99,7 @@ fun MyUI() {
                 // TODO
                 drawCircle(
                     color = Color(0xFFF3E4C2),
-                    radius = 32.dp.toPx(),
+                    radius = radius.toPx(),
                     center = Offset(offset.toPx(), offset.toPx())
                 )
                 composableScope.launch {
